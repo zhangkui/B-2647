@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  music-player:
+    build: .
+    container_name: vinyl-music-player
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - music-network
+    labels:
+      - "description=黑胶唱片音乐播放器"
+
+networks:
+  music-network:
+    driver: bridge

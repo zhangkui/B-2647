@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑胶唱片音乐播放器</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 播放器标题 -->
+        <header class="player-header">
+            <h1>🎵 黑胶唱片播放器</h1>
+        </header>
+
+        <!-- 黑胶唱片主区域 -->
+        <div class="vinyl-container">
+            <!-- 唱片 -->
+            <div class="vinyl-record" id="vinylRecord">
+                <!-- 唱片外圈 -->
+                <div class="vinyl-outer"></div>
+                <!-- 唱片纹路 -->
+                <div class="vinyl-grooves"></div>
+                <!-- 唱片标签 -->
+                <div class="vinyl-label">
+                    <div class="label-content">
+                        <div class="song-title" id="songTitle">未播放</div>
+                    </div>
+                </div>
+                <!-- 中心按钮 -->
+                <div class="center-button" id="centerPlayBtn">
+                    <svg class="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <svg class="pause-icon" viewBox="0 0 24 24" style="display: none;">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 唱臂 -->
+            <div class="tonearm" id="tonearm"></div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="controls-panel">
+            <!-- 进度条 -->
+            <div class="progress-container">
+                <span class="time-display" id="currentTime">0:00</span>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                    <div class="progress-thumb" id="progressThumb"></div>
+                </div>
+                <span class="time-display" id="duration">0:00</span>
+            </div>
+
+            <!-- 播放控制按钮 -->
+            <div class="control-buttons">
+                <button class="control-btn" id="prevBtn" title="上一曲">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/>
+                    </svg>
+                </button>
+                <button class="control-btn main-play-btn" id="playBtn" title="播放/暂停 (空格)">
+                    <svg class="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <svg class="pause-icon" viewBox="0 0 24 24" style="display: none;">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                    </svg>
+                </button>
+                <button class="control-btn" id="nextBtn" title="下一曲">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 音量控制 -->
+            <div class="volume-control">
+                <svg class="volume-icon" viewBox="0 0 24 24">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                </svg>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
+                <span class="volume-value" id="volumeValue">70%</span>
+            </div>
+        </div>
+
+        <!-- 播放列表 -->
+        <div class="playlist-section">
+            <h3>播放列表</h3>
+            <div class="playlist" id="playlist"></div>
+        </div>
+
+        <!-- 文件导入区域 -->
+        <div class="import-section">
+            <div class="import-buttons">
+                <label for="fileInput" class="import-btn">
+                    📁 选择本地文件
+                </label>
+                <input type="file" id="fileInput" accept="audio/*" multiple style="display: none;">
+                
+                <button class="import-btn" id="urlBtn">
+                    🌐 添加网络音乐
+                </button>
+            </div>
+        </div>
+
+        <!-- URL输入对话框 -->
+        <div class="modal" id="urlModal" style="display: none;">
+            <div class="modal-content">
+                <h3>添加网络音乐</h3>
+                <input type="text" id="urlInput" placeholder="请输入音乐URL" class="url-input">
+                <input type="text" id="urlTitle" placeholder="音乐标题（可选）" class="url-input">
+                <div class="modal-buttons">
+                    <button class="modal-btn" id="urlConfirm">确定</button>
+                    <button class="modal-btn cancel" id="urlCancel">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <!-- Audio元素 -->
+    <audio id="audioPlayer"></audio>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
