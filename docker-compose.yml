@@ -1,16 +1,74 @@
 version: '3.8'
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: music-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: music_db_password_2024
+      MYSQL_DATABASE: music_db
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - music-network
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pmusic_db_password_2024"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  music-server:
+    build: ./backend
+    container_name: music-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=music_db_password_2024
+      - DB_NAME=music_db
+      - NODE_ENV=production
+    volumes:
+      - music_uploads:/app/uploads
+    networks:
+      - music-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   music-player:
     build: .
     container_name: vinyl-music-player
     ports:
       - "8080:80"
     restart: unless-stopped
+    depends_on:
+      music-server:
+        condition: service_healthy
     networks:
       - music-network
     labels:
-      - "description=黑胶唱片音乐播放器"
+      - description=黑胶唱片音乐播放器
+
+volumes:
+  mysql_data:
+    name: music_mysql_data
+  music_uploads:
+    name: music_uploads
 
 networks:
   music-network:

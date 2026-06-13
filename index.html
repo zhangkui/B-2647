@@ -7,123 +7,223 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- 播放器标题 -->
-        <header class="player-header">
-            <h1>🎵 黑胶唱片播放器</h1>
-        </header>
+    <div id="app">
+        <div class="auth-container" id="authContainer">
+            <div class="auth-card">
+                <h1 class="auth-title">🎵 音乐管理系统</h1>
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="login">登录</button>
+                    <button class="auth-tab" data-tab="register">注册</button>
+                </div>
 
-        <!-- 黑胶唱片主区域 -->
-        <div class="vinyl-container">
-            <!-- 唱片 -->
-            <div class="vinyl-record" id="vinylRecord">
-                <!-- 唱片外圈 -->
-                <div class="vinyl-outer"></div>
-                <!-- 唱片纹路 -->
-                <div class="vinyl-grooves"></div>
-                <!-- 唱片标签 -->
-                <div class="vinyl-label">
-                    <div class="label-content">
-                        <div class="song-title" id="songTitle">未播放</div>
+                <div class="auth-form active" id="loginForm">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" id="loginUsername" placeholder="请输入用户名" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
+                    </div>
+                    <button class="auth-btn" id="loginBtn">登 录</button>
+                    <p class="auth-tip">还没有账户？ <a href="#" id="goToRegister">立即注册</a></p>
+                </div>
+
+                <div class="auth-form" id="registerForm">
+                    <div class="form-group">
+                        <label>用户名 <span class="required">*</span></label>
+                        <input type="text" id="regUsername" placeholder="3-20个字符" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>密码 <span class="required">*</span></label>
+                        <input type="password" id="regPassword" placeholder="至少6个字符" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>确认密码 <span class="required">*</span></label>
+                        <input type="password" id="regConfirmPassword" placeholder="再次输入密码" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="regEmail" placeholder="可选">
+                    </div>
+                    <div class="form-group">
+                        <label>昵称</label>
+                        <input type="text" id="regNickname" placeholder="可选">
+                    </div>
+                    <button class="auth-btn" id="registerBtn">注 册</button>
+                    <p class="auth-tip">已有账户？ <a href="#" id="goToLogin">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container" id="mainContainer" style="display: none;">
+            <div class="user-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-detail">
+                        <div class="user-name" id="userName">用户</div>
+                        <div class="user-email" id="userEmail"></div>
                     </div>
                 </div>
-                <!-- 中心按钮 -->
-                <div class="center-button" id="centerPlayBtn">
-                    <svg class="play-icon" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    <svg class="pause-icon" viewBox="0 0 24 24" style="display: none;">
-                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                    </svg>
+                <div class="user-actions">
+                    <button class="action-btn" id="refreshBtn" title="刷新列表">
+                        <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    </button>
+                    <button class="action-btn" id="statsBtn" title="统计信息">
+                        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                    </button>
+                    <button class="action-btn logout-btn" id="logoutBtn" title="退出登录">
+                        <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+                    </button>
                 </div>
             </div>
 
-            <!-- 唱臂 -->
-            <div class="tonearm" id="tonearm"></div>
-        </div>
+            <div class="container">
+                <header class="player-header">
+                    <h1>🎵 黑胶唱片播放器</h1>
+                </header>
 
-        <!-- 控制面板 -->
-        <div class="controls-panel">
-            <!-- 进度条 -->
-            <div class="progress-container">
-                <span class="time-display" id="currentTime">0:00</span>
-                <div class="progress-bar" id="progressBar">
-                    <div class="progress-fill" id="progressFill"></div>
-                    <div class="progress-thumb" id="progressThumb"></div>
+                <div class="vinyl-container">
+                    <div class="vinyl-record" id="vinylRecord">
+                        <div class="vinyl-outer"></div>
+                        <div class="vinyl-grooves"></div>
+                        <div class="vinyl-label">
+                            <div class="label-content">
+                                <div class="song-title" id="songTitle">未播放</div>
+                            </div>
+                        </div>
+                        <div class="center-button" id="centerPlayBtn">
+                            <svg class="play-icon" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                            <svg class="pause-icon" viewBox="0 0 24 24" style="display: none;">
+                                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="tonearm" id="tonearm"></div>
                 </div>
-                <span class="time-display" id="duration">0:00</span>
-            </div>
 
-            <!-- 播放控制按钮 -->
-            <div class="control-buttons">
-                <button class="control-btn" id="prevBtn" title="上一曲">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/>
-                    </svg>
-                </button>
-                <button class="control-btn main-play-btn" id="playBtn" title="播放/暂停 (空格)">
-                    <svg class="play-icon" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    <svg class="pause-icon" viewBox="0 0 24 24" style="display: none;">
-                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                    </svg>
-                </button>
-                <button class="control-btn" id="nextBtn" title="下一曲">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/>
-                    </svg>
-                </button>
-            </div>
+                <div class="controls-panel">
+                    <div class="progress-container">
+                        <span class="time-display" id="currentTime">0:00</span>
+                        <div class="progress-bar" id="progressBar">
+                            <div class="progress-fill" id="progressFill"></div>
+                            <div class="progress-thumb" id="progressThumb"></div>
+                        </div>
+                        <span class="time-display" id="duration">0:00</span>
+                    </div>
 
-            <!-- 音量控制 -->
-            <div class="volume-control">
-                <svg class="volume-icon" viewBox="0 0 24 24">
-                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-                </svg>
-                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
-                <span class="volume-value" id="volumeValue">70%</span>
+                    <div class="control-buttons">
+                        <button class="control-btn" id="prevBtn" title="上一曲">
+                            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+                        </button>
+                        <button class="control-btn main-play-btn" id="playBtn" title="播放/暂停">
+                            <svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <svg class="pause-icon" viewBox="0 0 24 24" style="display: none;"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                        </button>
+                        <button class="control-btn" id="nextBtn" title="下一曲">
+                            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="volume-control">
+                        <svg class="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
+                        <span class="volume-value" id="volumeValue">70%</span>
+                    </div>
+                </div>
+
+                <div class="music-info-card" id="musicInfoCard" style="display: none;">
+                    <div class="info-header">
+                        <h4>🎼 当前播放</h4>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-row">
+                            <span class="info-label">歌曲：</span>
+                            <span class="info-value" id="infoTitle">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">艺术家：</span>
+                            <span class="info-value" id="infoArtist">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">专辑：</span>
+                            <span class="info-value" id="infoAlbum">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">时长：</span>
+                            <span class="info-value" id="infoDuration">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">格式：</span>
+                            <span class="info-value" id="infoFormat">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">大小：</span>
+                            <span class="info-value" id="infoSize">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">比特率：</span>
+                            <span class="info-value" id="infoBitRate">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="playlist-section">
+                    <div class="playlist-header">
+                        <h3>播放列表</h3>
+                        <div class="playlist-stats" id="playlistStats">共 0 首</div>
+                    </div>
+                    <div class="playlist" id="playlist"></div>
+                </div>
+
+                <div class="import-section">
+                    <div class="import-buttons">
+                        <label for="fileInput" class="import-btn">
+                            📁 上传音乐
+                        </label>
+                        <input type="file" id="fileInput" accept="audio/*" multiple style="display: none;">
+                    </div>
+                    <div class="upload-progress" id="uploadProgress" style="display: none;">
+                        <div class="progress-text" id="progressText">上传中...</div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar-fill" id="progressBarFill"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 播放列表 -->
-        <div class="playlist-section">
-            <h3>播放列表</h3>
-            <div class="playlist" id="playlist"></div>
-        </div>
-
-        <!-- 文件导入区域 -->
-        <div class="import-section">
-            <div class="import-buttons">
-                <label for="fileInput" class="import-btn">
-                    📁 选择本地文件
-                </label>
-                <input type="file" id="fileInput" accept="audio/*" multiple style="display: none;">
-                
-                <button class="import-btn" id="urlBtn">
-                    🌐 添加网络音乐
-                </button>
-            </div>
-        </div>
-
-        <!-- URL输入对话框 -->
-        <div class="modal" id="urlModal" style="display: none;">
-            <div class="modal-content">
-                <h3>添加网络音乐</h3>
-                <input type="text" id="urlInput" placeholder="请输入音乐URL" class="url-input">
-                <input type="text" id="urlTitle" placeholder="音乐标题（可选）" class="url-input">
+        <div class="modal" id="statsModal" style="display: none;">
+            <div class="modal-content stats-content">
+                <h3>📊 统计信息</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-icon">🎵</div>
+                        <div class="stat-value" id="statCount">0</div>
+                        <div class="stat-label">总歌曲数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">💾</div>
+                        <div class="stat-value" id="statSize">0</div>
+                        <div class="stat-label">总大小</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-value" id="statDuration">0</div>
+                        <div class="stat-label">总时长</div>
+                    </div>
+                </div>
                 <div class="modal-buttons">
-                    <button class="modal-btn" id="urlConfirm">确定</button>
-                    <button class="modal-btn cancel" id="urlCancel">取消</button>
+                    <button class="modal-btn" id="closeStats">关闭</button>
                 </div>
             </div>
         </div>
 
-        <!-- 提示信息 -->
         <div class="toast" id="toast"></div>
     </div>
 
-    <!-- Audio元素 -->
     <audio id="audioPlayer"></audio>
 
     <script src="js/script.js"></script>
