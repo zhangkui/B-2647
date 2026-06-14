@@ -160,6 +160,47 @@ class ApiService {
         const token = this.getToken();
         return `${API_BASE}/music/${id}/play?token=${encodeURIComponent(token || '')}`;
     }
+
+    static async savePlayHistory(musicId, progress) {
+        return this.request('/play/history', {
+            method: 'POST',
+            body: JSON.stringify({ music_id: musicId, progress }),
+        });
+    }
+
+    static async getPlayHistory(page = 1, limit = 50) {
+        return this.request(`/play/history?page=${page}&limit=${limit}`);
+    }
+
+    static async clearPlayHistory() {
+        return this.request('/play/history', {
+            method: 'DELETE',
+        });
+    }
+
+    static async savePlayState(state) {
+        return this.request('/play/state', {
+            method: 'POST',
+            body: JSON.stringify(state),
+        });
+    }
+
+    static async getPlayState() {
+        return this.request('/play/state');
+    }
+
+    static getLocalPlayState() {
+        const state = localStorage.getItem('playState');
+        return state ? JSON.parse(state) : null;
+    }
+
+    static setLocalPlayState(state) {
+        localStorage.setItem('playState', JSON.stringify(state));
+    }
+
+    static removeLocalPlayState() {
+        localStorage.removeItem('playState');
+    }
 }
 
 class MusicPlayer {
@@ -180,6 +221,9 @@ class MusicPlayer {
         this.volumeValue = document.getElementById('volumeValue');
         this.songTitle = document.getElementById('songTitle');
         this.playlist = document.getElementById('playlist');
+        this.queueList = document.getElementById('queueList');
+        this.recentList = document.getElementById('recentList');
+        this.queueCount = document.getElementById('queueCount');
         this.fileInput = document.getElementById('fileInput');
         this.toast = document.getElementById('toast');
 
@@ -189,6 +233,12 @@ class MusicPlayer {
         this.progressBarFill = document.getElementById('progressBarFill');
         this.musicInfoCard = document.getElementById('musicInfoCard');
 
+        this.modeButtons = document.querySelectorAll('.mode-btn');
+        this.tabButtons = document.querySelectorAll('.tab-btn');
+        this.tabContents = document.querySelectorAll('.tab-content');
+        this.clearQueueBtn = document.getElementById('clearQueueBtn');
+        this.clearRecentBtn = document.getElementById('clearRecentBtn');
+
         this.songs = [];
         this.currentIndex = -1;
         this.isPlaying = false;
@@ -196,13 +246,24 @@ class MusicPlayer {
 
         this.currentMusicInfo = null;
 
+        this.playMode = 'sequence';
+        this.playQueue = [];
+        this.recentPlay = [];
+        this.shuffleOrder = [];
+        this.shuffleIndex = -1;
+
+        this.stateSyncTimer = null;
+        this.historySyncTimer = null;
+
         this.init();
     }
 
-    init() {
+    async init() {
         this.audio.volume = this.volumeSlider.value / 100;
         this.bindEvents();
-        this.loadMusicList();
+        await this.loadMusicList();
+        await this.syncStateFromServer();
+        this.startStateSyncTimer();
     }
 
     bindEvents() {
@@ -215,6 +276,8 @@ class MusicPlayer {
         this.audio.addEventListener('loadedmetadata', () => this.updateDuration());
         this.audio.addEventListener('ended', () => this.handleSongEnd());
         this.audio.addEventListener('error', (e) => this.handleError(e));
+        this.audio.addEventListener('play', () => this.syncStateToStorage());
+        this.audio.addEventListener('pause', () => this.syncStateToStorage());
 
         this.progressBar.addEventListener('mousedown', (e) => this.startDrag(e));
         this.progressBar.addEventListener('click', (e) => this.seek(e));
@@ -230,10 +293,401 @@ class MusicPlayer {
         });
         document.addEventListener('touchend', () => this.stopDrag());
 
-        this.volumeSlider.addEventListener('input', () => this.updateVolume());
+        this.volumeSlider.addEventListener('input', () => {
+            this.updateVolume();
+            this.syncStateToStorage();
+        });
         this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
 
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+        this.modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.setPlayMode(btn.dataset.mode));
+        });
+
+        this.tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        });
+
+        this.clearQueueBtn.addEventListener('click', () => this.clearQueue());
+        this.clearRecentBtn.addEventListener('click', () => this.clearRecent());
+
+        window.addEventListener('beforeunload', () => this.syncStateToServer());
+        window.addEventListener('focus', () => this.syncStateFromServer());
+    }
+
+    setPlayMode(mode) {
+        this.playMode = mode;
+        this.modeButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        const modeNames = {
+            sequence: '顺序播放',
+            loop: '列表循环',
+            single: '单曲循环',
+            shuffle: '随机播放'
+        };
+        this.showToast(`已切换为${modeNames[mode]}`);
+        if (mode === 'shuffle') {
+            this.generateShuffleOrder();
+        }
+        this.syncStateToStorage();
+    }
+
+    generateShuffleOrder() {
+        this.shuffleOrder = Array.from({ length: this.songs.length }, (_, i) => i);
+        for (let i = this.shuffleOrder.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.shuffleOrder[i], this.shuffleOrder[j]] = [this.shuffleOrder[j], this.shuffleOrder[i]];
+        }
+        this.shuffleIndex = this.shuffleOrder.indexOf(this.currentIndex);
+        if (this.shuffleIndex === -1) {
+            this.shuffleIndex = 0;
+        }
+    }
+
+    switchTab(tab) {
+        this.tabButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        this.tabContents.forEach(content => {
+            content.classList.toggle('active', content.id === `tab-${tab}`);
+        });
+        if (tab === 'queue') {
+            this.updateQueueUI();
+        } else if (tab === 'recent') {
+            this.updateRecentUI();
+        }
+    }
+
+    addToQueue(song) {
+        const exists = this.playQueue.find(s => s.id === song.id);
+        if (exists) {
+            this.showToast('该歌曲已在队列中');
+            return;
+        }
+        this.playQueue.push({ ...song, addedAt: Date.now() });
+        this.updateQueueCount();
+        this.syncStateToStorage();
+        this.showToast(`已添加到播放队列: ${song.title}`);
+    }
+
+    removeFromQueue(index) {
+        this.playQueue.splice(index, 1);
+        this.updateQueueCount();
+        this.updateQueueUI();
+        this.syncStateToStorage();
+    }
+
+    moveQueueItem(index, direction) {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= this.playQueue.length) return;
+        [this.playQueue[index], this.playQueue[newIndex]] = [this.playQueue[newIndex], this.playQueue[index]];
+        this.updateQueueUI();
+        this.syncStateToStorage();
+    }
+
+    clearQueue() {
+        if (this.playQueue.length === 0) {
+            this.showToast('播放队列为空');
+            return;
+        }
+        if (!confirm('确定要清空播放队列吗？')) return;
+        this.playQueue = [];
+        this.updateQueueCount();
+        this.updateQueueUI();
+        this.syncStateToStorage();
+        this.showToast('播放队列已清空');
+    }
+
+    updateQueueCount() {
+        this.queueCount.textContent = this.playQueue.length;
+    }
+
+    updateQueueUI() {
+        this.queueList.innerHTML = '';
+        if (this.playQueue.length === 0) {
+            this.queueList.innerHTML = '<div style="text-align: center; padding: 30px; color: #999;">播放队列为空，点击歌曲右侧的"+"按钮添加</div>';
+            return;
+        }
+        this.playQueue.forEach((song, index) => {
+            const item = this.createPlaylistItem(song, -1, 'queue', index);
+            this.queueList.appendChild(item);
+        });
+    }
+
+    addToRecent(song) {
+        const existsIndex = this.recentPlay.findIndex(s => s.id === song.id);
+        if (existsIndex !== -1) {
+            this.recentPlay.splice(existsIndex, 1);
+        }
+        this.recentPlay.unshift({
+            ...song,
+            playedAt: Date.now()
+        });
+        if (this.recentPlay.length > 50) {
+            this.recentPlay = this.recentPlay.slice(0, 50);
+        }
+        this.syncStateToStorage();
+        this.syncHistoryToServer(song.id, this.audio.currentTime);
+    }
+
+    clearRecent() {
+        if (this.recentPlay.length === 0) {
+            this.showToast('最近播放记录为空');
+            return;
+        }
+        if (!confirm('确定要清空最近播放记录吗？')) return;
+        this.recentPlay = [];
+        this.updateRecentUI();
+        this.syncStateToStorage();
+        ApiService.clearPlayHistory().catch(() => {});
+        this.showToast('最近播放记录已清空');
+    }
+
+    updateRecentUI() {
+        this.recentList.innerHTML = '';
+        if (this.recentPlay.length === 0) {
+            this.recentList.innerHTML = '<div style="text-align: center; padding: 30px; color: #999;">暂无播放记录</div>';
+            return;
+        }
+        this.recentPlay.forEach((song, index) => {
+            const item = this.createPlaylistItem(song, this.currentIndex, 'recent', index);
+            this.recentList.appendChild(item);
+        });
+    }
+
+    formatRecentTime(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return '刚刚';
+        if (minutes < 60) return `${minutes}分钟前`;
+        if (hours < 24) return `${hours}小时前`;
+        if (days < 7) return `${days}天前`;
+
+        const date = new Date(timestamp);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    createPlaylistItem(song, currentIndex, listType = 'playlist', itemIndex = 0) {
+        const item = document.createElement('div');
+        item.className = 'playlist-item';
+        if (this.currentIndex >= 0 && this.songs[this.currentIndex]?.id === song.id) {
+            item.classList.add('active');
+        }
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'playlist-item-info';
+
+        const title = document.createElement('div');
+        title.className = 'playlist-item-title';
+        if (listType === 'playlist') {
+            title.textContent = `${itemIndex + 1}. ${song.title}`;
+        } else {
+            title.textContent = song.title;
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'playlist-item-meta';
+        const artist = song.artist || '未知艺术家';
+        const duration = song.durationFormatted || '--:--';
+        meta.textContent = `${artist} · ${duration}`;
+
+        infoDiv.appendChild(title);
+        infoDiv.appendChild(meta);
+
+        if (listType === 'recent' && song.playedAt) {
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'recent-time';
+            timeDiv.textContent = this.formatRecentTime(song.playedAt);
+            infoDiv.appendChild(timeDiv);
+        }
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'playlist-item-actions';
+
+        if (listType === 'playlist') {
+            const addQueueBtn = document.createElement('button');
+            addQueueBtn.className = 'add-queue-btn';
+            addQueueBtn.textContent = '+队列';
+            addQueueBtn.title = '添加到播放队列';
+            addQueueBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.addToQueue(song);
+            });
+            actionsDiv.appendChild(addQueueBtn);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'playlist-item-delete';
+            deleteBtn.textContent = '删除';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteSong(itemIndex);
+            });
+            actionsDiv.appendChild(deleteBtn);
+        } else if (listType === 'queue') {
+            const queueActions = document.createElement('div');
+            queueActions.className = 'queue-item-actions';
+
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.className = 'queue-move-btn';
+            moveUpBtn.innerHTML = '↑';
+            moveUpBtn.disabled = itemIndex === 0;
+            moveUpBtn.title = '上移';
+            moveUpBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.moveQueueItem(itemIndex, -1);
+            });
+            queueActions.appendChild(moveUpBtn);
+
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.className = 'queue-move-btn';
+            moveDownBtn.innerHTML = '↓';
+            moveDownBtn.disabled = itemIndex === this.playQueue.length - 1;
+            moveDownBtn.title = '下移';
+            moveDownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.moveQueueItem(itemIndex, 1);
+            });
+            queueActions.appendChild(moveDownBtn);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'queue-remove-btn';
+            removeBtn.innerHTML = '×';
+            removeBtn.title = '从队列移除';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeFromQueue(itemIndex);
+            });
+            queueActions.appendChild(removeBtn);
+
+            actionsDiv.appendChild(queueActions);
+        }
+
+        item.appendChild(infoDiv);
+        item.appendChild(actionsDiv);
+
+        item.addEventListener('click', () => {
+            const songIndex = this.songs.findIndex(s => s.id === song.id);
+            if (songIndex !== -1) {
+                this.playSong(songIndex);
+            } else {
+                this.showToast('歌曲不存在');
+            }
+        });
+
+        return item;
+    }
+
+    async syncStateFromServer() {
+        try {
+            const state = await ApiService.getPlayState();
+            if (state) {
+                this.applyPlayState(state);
+            }
+        } catch (error) {
+            const localState = ApiService.getLocalPlayState();
+            if (localState) {
+                this.applyPlayState(localState);
+            }
+        }
+    }
+
+    applyPlayState(state) {
+        if (state.play_mode) {
+            this.playMode = state.play_mode;
+            this.modeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === state.play_mode);
+            });
+        }
+        if (state.queue && Array.isArray(state.queue)) {
+            this.playQueue = state.queue;
+            this.updateQueueCount();
+        }
+        if (state.recent_play && Array.isArray(state.recent_play)) {
+            this.recentPlay = state.recent_play;
+        }
+        if (state.volume !== undefined && state.volume !== null) {
+            this.volumeSlider.value = state.volume;
+            this.updateVolume();
+        }
+        if (state.current_music_id && this.songs.length > 0) {
+            const songIndex = this.songs.findIndex(s => s.id === state.current_music_id);
+            if (songIndex !== -1) {
+                this.currentIndex = songIndex;
+                const song = this.songs[songIndex];
+                this.audio.src = song.url;
+                this.songTitle.textContent = song.title;
+                this.currentMusicInfo = song;
+                this.showMusicInfo(song);
+                this.updatePlaylistUI();
+                if (state.progress > 0) {
+                    this.audio.currentTime = state.progress;
+                }
+                if (state.is_playing) {
+                    this.play();
+                } else {
+                    this.updatePlayButton(false);
+                }
+            }
+        }
+        if (this.playMode === 'shuffle') {
+            this.generateShuffleOrder();
+        }
+    }
+
+    syncStateToStorage() {
+        const state = {
+            current_music_id: this.currentIndex >= 0 ? this.songs[this.currentIndex]?.id : null,
+            current_index: this.currentIndex,
+            is_playing: this.isPlaying,
+            progress: this.audio.currentTime,
+            volume: parseInt(this.volumeSlider.value),
+            play_mode: this.playMode,
+            queue: this.playQueue,
+            recent_play: this.recentPlay,
+        };
+        ApiService.setLocalPlayState(state);
+    }
+
+    async syncStateToServer() {
+        const state = {
+            current_music_id: this.currentIndex >= 0 ? this.songs[this.currentIndex]?.id : null,
+            current_index: this.currentIndex,
+            is_playing: this.isPlaying,
+            progress: this.audio.currentTime,
+            volume: parseInt(this.volumeSlider.value),
+            play_mode: this.playMode,
+            queue: this.playQueue,
+            recent_play: this.recentPlay,
+        };
+        try {
+            await ApiService.savePlayState(state);
+        } catch (error) {
+            console.error('同步状态到服务器失败:', error);
+        }
+    }
+
+    async syncHistoryToServer(musicId, progress) {
+        try {
+            await ApiService.savePlayHistory(musicId, progress);
+        } catch (error) {
+            console.error('同步历史到服务器失败:', error);
+        }
+    }
+
+    startStateSyncTimer() {
+        if (this.stateSyncTimer) {
+            clearInterval(this.stateSyncTimer);
+        }
+        this.stateSyncTimer = setInterval(() => {
+            this.syncStateToStorage();
+            this.syncStateToServer();
+        }, 30000);
     }
 
     async loadMusicList() {
@@ -244,6 +698,9 @@ class MusicPlayer {
                 url: ApiService.getMusicPlayUrl(item.id),
                 isLocal: false,
             }));
+            if (this.playMode === 'shuffle') {
+                this.generateShuffleOrder();
+            }
             this.updatePlaylistUI();
         } catch (error) {
             this.showToast(error.message || '加载音乐列表失败');
@@ -356,8 +813,12 @@ class MusicPlayer {
         this.songTitle.textContent = song.title;
         this.currentMusicInfo = song;
         this.showMusicInfo(song);
+        this.addToRecent(song);
         this.updatePlaylistUI();
+        this.updateQueueUI();
+        this.updateRecentUI();
         this.play();
+        this.syncStateToStorage();
     }
 
     showMusicInfo(song) {
@@ -375,24 +836,89 @@ class MusicPlayer {
     playPrevious() {
         if (this.songs.length === 0) return;
 
-        let newIndex = this.currentIndex - 1;
-        if (newIndex < 0) {
-            newIndex = this.songs.length - 1;
+        if (this.playQueue.length > 0) {
+            this.showToast('队列模式下请使用下一曲');
+            return;
         }
+
+        let newIndex;
+
+        if (this.playMode === 'shuffle') {
+            this.shuffleIndex--;
+            if (this.shuffleIndex < 0) {
+                this.shuffleIndex = this.shuffleOrder.length - 1;
+            }
+            newIndex = this.shuffleOrder[this.shuffleIndex];
+        } else {
+            newIndex = this.currentIndex - 1;
+            if (newIndex < 0) {
+                if (this.playMode === 'sequence') {
+                    this.showToast('已经是第一首了');
+                    return;
+                }
+                newIndex = this.songs.length - 1;
+            }
+        }
+
         this.playSong(newIndex);
     }
 
     playNext() {
         if (this.songs.length === 0) return;
 
-        let newIndex = this.currentIndex + 1;
-        if (newIndex >= this.songs.length) {
-            newIndex = 0;
+        if (this.playQueue.length > 0) {
+            const nextSong = this.playQueue.shift();
+            this.updateQueueCount();
+            this.updateQueueUI();
+            const songIndex = this.songs.findIndex(s => s.id === nextSong.id);
+            if (songIndex !== -1) {
+                this.playSong(songIndex);
+                return;
+            }
         }
+
+        let newIndex;
+
+        if (this.playMode === 'single') {
+            this.audio.currentTime = 0;
+            this.play();
+            return;
+        }
+
+        if (this.playMode === 'shuffle') {
+            this.shuffleIndex++;
+            if (this.shuffleIndex >= this.shuffleOrder.length) {
+                if (this.playMode === 'sequence') {
+                    this.showToast('播放列表已播放完毕');
+                    this.pause();
+                    return;
+                }
+                this.generateShuffleOrder();
+                this.shuffleIndex = 0;
+            }
+            newIndex = this.shuffleOrder[this.shuffleIndex];
+        } else {
+            newIndex = this.currentIndex + 1;
+            if (newIndex >= this.songs.length) {
+                if (this.playMode === 'sequence') {
+                    this.showToast('播放列表已播放完毕');
+                    this.pause();
+                    return;
+                }
+                newIndex = 0;
+            }
+        }
+
         this.playSong(newIndex);
     }
 
     handleSongEnd() {
+        if (this.currentIndex >= 0) {
+            const currentSong = this.songs[this.currentIndex];
+            if (currentSong) {
+                this.syncHistoryToServer(currentSong.id, this.audio.duration || 0);
+            }
+        }
         this.playNext();
     }
 
@@ -476,44 +1002,7 @@ class MusicPlayer {
         }
 
         this.songs.forEach((song, index) => {
-            const item = document.createElement('div');
-            item.className = 'playlist-item';
-            if (index === this.currentIndex) {
-                item.classList.add('active');
-            }
-
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'playlist-item-info';
-
-            const title = document.createElement('div');
-            title.className = 'playlist-item-title';
-            title.textContent = `${index + 1}. ${song.title}`;
-
-            const meta = document.createElement('div');
-            meta.className = 'playlist-item-meta';
-            const artist = song.artist || '未知艺术家';
-            const duration = song.durationFormatted || '--:--';
-            const size = song.fileSizeFormatted || '';
-            meta.textContent = `${artist} · ${duration} · ${size}`;
-
-            infoDiv.appendChild(title);
-            infoDiv.appendChild(meta);
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'playlist-item-delete';
-            deleteBtn.textContent = '删除';
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.deleteSong(index);
-            });
-
-            item.appendChild(infoDiv);
-            item.appendChild(deleteBtn);
-
-            item.addEventListener('click', () => {
-                this.playSong(index);
-            });
-
+            const item = this.createPlaylistItem(song, this.currentIndex, 'playlist', index);
             this.playlist.appendChild(item);
         });
     }
@@ -523,6 +1012,10 @@ class MusicPlayer {
 
         try {
             await ApiService.deleteMusic(song.id);
+
+            this.playQueue = this.playQueue.filter(s => s.id !== song.id);
+            this.recentPlay = this.recentPlay.filter(s => s.id !== song.id);
+            this.updateQueueCount();
 
             if (index === this.currentIndex) {
                 this.pause();
@@ -554,7 +1047,14 @@ class MusicPlayer {
                 }
             }
 
+            if (this.playMode === 'shuffle') {
+                this.generateShuffleOrder();
+            }
+
             this.updatePlaylistUI();
+            this.updateQueueUI();
+            this.updateRecentUI();
+            this.syncStateToStorage();
             this.showToast('删除成功');
         } catch (error) {
             this.showToast(error.message || '删除失败');
@@ -628,6 +1128,7 @@ class MusicPlayer {
     refresh() {
         const wasPlaying = this.isPlaying;
         const currentSongId = this.currentIndex >= 0 ? this.songs[this.currentIndex]?.id : null;
+        const currentProgress = this.audio.currentTime;
 
         this.loadMusicList().then(() => {
             if (currentSongId) {
@@ -635,17 +1136,24 @@ class MusicPlayer {
                 if (newIndex >= 0) {
                     this.currentIndex = newIndex;
                     this.audio.src = this.songs[newIndex].url;
+                    this.audio.currentTime = currentProgress;
                     if (wasPlaying) {
                         this.play();
                     }
                 }
             }
+            this.syncStateFromServer();
             this.showToast('刷新成功');
         });
     }
 
     reset() {
         try {
+            if (this.stateSyncTimer) {
+                clearInterval(this.stateSyncTimer);
+                this.stateSyncTimer = null;
+            }
+
             if (this.audio) {
                 this.audio.pause();
                 this.audio.src = '';
@@ -657,6 +1165,11 @@ class MusicPlayer {
             this.currentIndex = -1;
             this.songs = [];
             this.currentMusicInfo = null;
+            this.playMode = 'sequence';
+            this.playQueue = [];
+            this.recentPlay = [];
+            this.shuffleOrder = [];
+            this.shuffleIndex = -1;
 
             const buttons = [this.centerPlayBtn, this.playBtn];
             buttons.forEach(btn => {
@@ -694,7 +1207,18 @@ class MusicPlayer {
                 this.musicInfoCard.style.display = 'none';
             }
 
+            if (this.modeButtons) {
+                this.modeButtons.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === 'sequence');
+                });
+            }
+
+            this.updateQueueCount();
             this.updatePlaylistUI();
+            this.updateQueueUI();
+            this.updateRecentUI();
+
+            ApiService.removeLocalPlayState();
         } catch (e) {
             console.error('重置播放器失败:', e);
         }
@@ -815,6 +1339,7 @@ class AuthManager {
         this.mainContainer.style.display = 'none';
 
         this.resetPlayerState();
+        ApiService.removeLocalPlayState();
 
         this.clearAuthForms();
     }
@@ -830,13 +1355,21 @@ class AuthManager {
             window.musicPlayer = this.player;
         } else {
             this.player.reset();
-            this.player.loadMusicList();
+            this.player.loadMusicList().then(() => {
+                this.player.syncStateFromServer();
+                this.player.startStateSyncTimer();
+            });
         }
     }
 
     resetPlayerState() {
         if (this.player) {
             try {
+                if (this.player.stateSyncTimer) {
+                    clearInterval(this.player.stateSyncTimer);
+                    this.player.stateSyncTimer = null;
+                }
+
                 if (this.player.audio) {
                     this.player.audio.pause();
                     this.player.audio.src = '';
@@ -848,6 +1381,11 @@ class AuthManager {
                 this.player.currentIndex = -1;
                 this.player.songs = [];
                 this.player.currentMusicInfo = null;
+                this.player.playMode = 'sequence';
+                this.player.playQueue = [];
+                this.player.recentPlay = [];
+                this.player.shuffleOrder = [];
+                this.player.shuffleIndex = -1;
 
                 const playBtns = [this.player.centerPlayBtn, this.player.playBtn];
                 playBtns.forEach(btn => {
@@ -885,7 +1423,16 @@ class AuthManager {
                     this.player.musicInfoCard.style.display = 'none';
                 }
 
+                if (this.player.modeButtons) {
+                    this.player.modeButtons.forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.mode === 'sequence');
+                    });
+                }
+
+                this.player.updateQueueCount();
                 this.player.updatePlaylistUI();
+                this.player.updateQueueUI();
+                this.player.updateRecentUI();
             } catch (e) {
                 console.error('重置播放器状态时出错:', e);
             }

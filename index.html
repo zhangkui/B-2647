@@ -114,6 +114,25 @@
                         <span class="time-display" id="duration">0:00</span>
                     </div>
 
+                    <div class="play-modes">
+                        <button class="mode-btn active" data-mode="sequence" title="顺序播放">
+                            <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2zm14-1v4h4l-4 4v-4z"/></svg>
+                            <span class="mode-label">顺序</span>
+                        </button>
+                        <button class="mode-btn" data-mode="loop" title="列表循环">
+                            <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                            <span class="mode-label">循环</span>
+                        </button>
+                        <button class="mode-btn" data-mode="single" title="单曲循环">
+                            <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3zm-1-5h2v2h-2v-2zm0-8h2v6h-2V5z"/></svg>
+                            <span class="mode-label">单曲</span>
+                        </button>
+                        <button class="mode-btn" data-mode="shuffle" title="随机播放">
+                            <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                            <span class="mode-label">随机</span>
+                        </button>
+                    </div>
+
                     <div class="control-buttons">
                         <button class="control-btn" id="prevBtn" title="上一曲">
                             <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
@@ -171,11 +190,45 @@
                 </div>
 
                 <div class="playlist-section">
-                    <div class="playlist-header">
-                        <h3>播放列表</h3>
-                        <div class="playlist-stats" id="playlistStats">共 0 首</div>
+                    <div class="playlist-tabs">
+                        <button class="tab-btn active" data-tab="playlist">
+                            <svg viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+                            播放列表
+                        </button>
+                        <button class="tab-btn" data-tab="queue">
+                            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+                            播放队列 <span class="queue-count" id="queueCount">0</span>
+                        </button>
+                        <button class="tab-btn" data-tab="recent">
+                            <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                            最近播放
+                        </button>
                     </div>
-                    <div class="playlist" id="playlist"></div>
+                    <div class="tab-content active" id="tab-playlist">
+                        <div class="playlist-header">
+                            <h3>全部歌曲</h3>
+                            <div class="playlist-stats" id="playlistStats">共 0 首</div>
+                        </div>
+                        <div class="playlist" id="playlist"></div>
+                    </div>
+                    <div class="tab-content" id="tab-queue">
+                        <div class="playlist-header">
+                            <h3>播放队列</h3>
+                            <div class="queue-actions">
+                                <button class="queue-action-btn" id="clearQueueBtn">清空队列</button>
+                            </div>
+                        </div>
+                        <div class="playlist" id="queueList"></div>
+                    </div>
+                    <div class="tab-content" id="tab-recent">
+                        <div class="playlist-header">
+                            <h3>最近播放</h3>
+                            <div class="queue-actions">
+                                <button class="queue-action-btn" id="clearRecentBtn">清空记录</button>
+                            </div>
+                        </div>
+                        <div class="playlist" id="recentList"></div>
+                    </div>
                 </div>
 
                 <div class="import-section">

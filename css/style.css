@@ -286,6 +286,45 @@ body {
     opacity: 1;
 }
 
+/* 播放模式 */
+.play-modes {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 2px solid transparent;
+    border-radius: 20px;
+    background: #f0f0f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.mode-btn:hover {
+    background: #e0e0e0;
+}
+
+.mode-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-color: #667eea;
+}
+
+.mode-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
 /* 控制按钮 */
 .control-buttons {
     display: flex;
@@ -995,6 +1034,70 @@ body {
     word-break: break-all;
 }
 
+.playlist-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 20px;
+    background: #f0f0f0;
+    border-radius: 12px;
+    padding: 5px;
+}
+
+.tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 15px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #666;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.tab-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+.tab-btn:hover {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.queue-count {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.tab-btn:not(.active) .queue-count {
+    background: #667eea;
+    color: white;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
 .playlist-header {
     display: flex;
     justify-content: space-between;
@@ -1011,6 +1114,27 @@ body {
 .playlist-stats {
     font-size: 0.9rem;
     color: #999;
+}
+
+.queue-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.queue-action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    background: #f0f0f0;
+    color: #666;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.queue-action-btn:hover {
+    background: #e0e0e0;
+    color: #333;
 }
 
 .upload-progress {
@@ -1098,6 +1222,116 @@ body {
 
 .playlist-item.active .playlist-item-meta {
     color: rgba(255, 255, 255, 0.8);
+}
+
+.playlist-item-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.add-queue-btn {
+    padding: 5px 10px;
+    background: rgba(102, 126, 234, 0.1);
+    border: none;
+    border-radius: 5px;
+    color: #667eea;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.add-queue-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+.playlist-item.active .add-queue-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.playlist-item.active .add-queue-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.queue-item-actions {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.queue-move-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-move-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+.queue-move-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.playlist-item.active .queue-move-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.playlist-item.active .queue-move-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.queue-remove-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(255, 0, 0, 0.1);
+    color: #ff4444;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.queue-remove-btn:hover {
+    background: #ff4444;
+    color: white;
+}
+
+.playlist-item.active .queue-remove-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.playlist-item.active .queue-remove-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.recent-time {
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 3px;
+}
+
+.playlist-item.active .recent-time {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .loading {
