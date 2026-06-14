@@ -643,6 +643,62 @@ class MusicPlayer {
             this.showToast('刷新成功');
         });
     }
+
+    reset() {
+        try {
+            if (this.audio) {
+                this.audio.pause();
+                this.audio.src = '';
+                this.audio.currentTime = 0;
+                this.audio.load();
+            }
+
+            this.isPlaying = false;
+            this.currentIndex = -1;
+            this.songs = [];
+            this.currentMusicInfo = null;
+
+            const buttons = [this.centerPlayBtn, this.playBtn];
+            buttons.forEach(btn => {
+                const playIcon = btn.querySelector('.play-icon');
+                const pauseIcon = btn.querySelector('.pause-icon');
+                if (playIcon) playIcon.style.display = 'block';
+                if (pauseIcon) pauseIcon.style.display = 'none';
+            });
+
+            if (this.vinylRecord) {
+                this.vinylRecord.classList.remove('playing');
+            }
+            if (this.tonearm) {
+                this.tonearm.classList.remove('playing');
+            }
+
+            if (this.songTitle) {
+                this.songTitle.textContent = '未播放';
+            }
+
+            if (this.progressFill) {
+                this.progressFill.style.width = '0%';
+            }
+            if (this.progressThumb) {
+                this.progressThumb.style.left = '0%';
+            }
+            if (this.currentTimeDisplay) {
+                this.currentTimeDisplay.textContent = '0:00';
+            }
+            if (this.durationDisplay) {
+                this.durationDisplay.textContent = '0:00';
+            }
+
+            if (this.musicInfoCard) {
+                this.musicInfoCard.style.display = 'none';
+            }
+
+            this.updatePlaylistUI();
+        } catch (e) {
+            console.error('重置播放器失败:', e);
+        }
+    }
 }
 
 class AuthManager {
@@ -757,6 +813,10 @@ class AuthManager {
     showAuth() {
         this.authContainer.style.display = 'flex';
         this.mainContainer.style.display = 'none';
+
+        this.resetPlayerState();
+
+        this.clearAuthForms();
     }
 
     showMain(user) {
@@ -769,8 +829,77 @@ class AuthManager {
             this.player = new MusicPlayer();
             window.musicPlayer = this.player;
         } else {
+            this.player.reset();
             this.player.loadMusicList();
         }
+    }
+
+    resetPlayerState() {
+        if (this.player) {
+            try {
+                if (this.player.audio) {
+                    this.player.audio.pause();
+                    this.player.audio.src = '';
+                    this.player.audio.currentTime = 0;
+                    this.player.audio.load();
+                }
+
+                this.player.isPlaying = false;
+                this.player.currentIndex = -1;
+                this.player.songs = [];
+                this.player.currentMusicInfo = null;
+
+                const playBtns = [this.player.centerPlayBtn, this.player.playBtn];
+                playBtns.forEach(btn => {
+                    const playIcon = btn.querySelector('.play-icon');
+                    const pauseIcon = btn.querySelector('.pause-icon');
+                    if (playIcon) playIcon.style.display = 'block';
+                    if (pauseIcon) pauseIcon.style.display = 'none';
+                });
+
+                if (this.player.vinylRecord) {
+                    this.player.vinylRecord.classList.remove('playing');
+                }
+                if (this.player.tonearm) {
+                    this.player.tonearm.classList.remove('playing');
+                }
+
+                if (this.player.songTitle) {
+                    this.player.songTitle.textContent = '未播放';
+                }
+
+                if (this.player.progressFill) {
+                    this.player.progressFill.style.width = '0%';
+                }
+                if (this.player.progressThumb) {
+                    this.player.progressThumb.style.left = '0%';
+                }
+                if (this.player.currentTimeDisplay) {
+                    this.player.currentTimeDisplay.textContent = '0:00';
+                }
+                if (this.player.durationDisplay) {
+                    this.player.durationDisplay.textContent = '0:00';
+                }
+
+                if (this.player.musicInfoCard) {
+                    this.player.musicInfoCard.style.display = 'none';
+                }
+
+                this.player.updatePlaylistUI();
+            } catch (e) {
+                console.error('重置播放器状态时出错:', e);
+            }
+        }
+    }
+
+    clearAuthForms() {
+        document.getElementById('loginUsername').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('regUsername').value = '';
+        document.getElementById('regPassword').value = '';
+        document.getElementById('regConfirmPassword').value = '';
+        document.getElementById('regEmail').value = '';
+        document.getElementById('regNickname').value = '';
     }
 
     updateUserInfo(user) {
